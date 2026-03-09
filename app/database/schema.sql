@@ -9,7 +9,8 @@ CREATE TABLE "users" (
   "username" varchar,
   "first_name" varchar NOT NULL,
   "last_name" varchar,
-  "role_id" integer NOT NULL
+  "role_id" integer NOT NULL,
+  "accepted_rules" bool NOT NULL DEFAULT false
 );
 
 CREATE TABLE "roles" (

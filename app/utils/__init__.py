@@ -1,1 +1,1 @@
-from flood import flood_detector
+from .flood import flood_detector
