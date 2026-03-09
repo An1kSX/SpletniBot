@@ -43,5 +43,12 @@ class Settings(BaseSettings):
 	def redis_dsn(self) -> str:
 		return f"redis://{self.redis_host}:{self.redis_port}/0"
 
+	@property
+	def reply_url(self) -> str:
+		channel_id = int(
+				str(spletni_channel_id).replace("-100", "")
+				)
+		return f"https://t.me/c/{channel_id}/"
+
 
 settings = Settings()
