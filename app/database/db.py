@@ -1,78 +1,133 @@
-import os
 import asyncio
-import aiomysql
-from pymysql.err import IntegrityError
+import asyncpg
+
+from typing import List, Tuple, Dict
+
+from app.core.config import settings
 from app.core.logger import ModuleLogger
 
-logger = ModuleLogger(__name__).get_logger()
+
+logger = ModuleLogger(
+	module_name=__name__,
+	log_level=settings.log_level
+).get_logger()
 
 
 class Database:
 	def __init__(self):
-		self.host = os.getenv("MYSQL_HOST")
-		self.port = int(os.getenv("MYSQL_PORT", "3306"))
-		self.user = os.getenv("MYSQL_USER")
-		self.password = os.getenv("MYSQL_PASSWORD")
-		self.dbname = os.getenv("MYSQL_DBNAME")
+		self.host = settings.postgres_host
+		self.port = settings.postgres_port
+		self.user = settings.postgres_user
+		self.password = settings.postgres_password
+		self.dbname = settings.postgres_db
 
 		missing = [n for n, v in [
-			("HOST", self.host),
-			("USER", self.user),
-			("PASSWORD", self.password),
-			("DATABASE", self.dbname),
+			("POSTGRES_HOST", self.host),
+			("POSTGRES_USER", self.user),
+			("POSTGRES_DB", self.dbname),
 		] if not v]
 
 		if missing:
 			raise ValueError(f"Missing required env vars: {', '.join(missing)}")
 
-		self.db = None
+		self.pool: asyncpg.Pool | None = None
 
-	async def __aenter__(self):
-		self.db = await aiomysql.connect(
+	async def connect(self) -> None:
+		if self.pool is not None:
+			return
+
+		self.pool = await asyncpg.create_pool(
 			host=self.host,
 			port=self.port,
 			user=self.user,
-			password=self.password,
-			db=self.dbname,
-			autocommit=True,
+			password=self.password or None,
+			database=self.dbname,
+			min_size=1,
+			max_size=10,
+			command_timeout=10,
+			timeout=10,
 		)
-		return self.db
+
+		logger.info("PostgreSQL pool created")
+
+	async def close(self) -> None:
+		if self.pool is not None:
+			await self.pool.close()
+			self.pool = None
+			logger.info("PostgreSQL pool closed")
+
+	async def __aenter__(self):
+		await self.connect()
+		return self
 
 	async def __aexit__(self, exc_type, exc_value, traceback):
+		await self.close()
+
+	async def execute_query(self, query: str, params: Tuple = ()) -> Dict | List[Dict]:
+		if self.pool is None:
+			await self.connect()
+
 		try:
-			if exc_type is not None:
-				try:
-					await self.db.rollback()
+			logger.info("Executing query: %s", query)
 
-				except Exception:
-					pass
-		finally:
-			if self.db is not None:
-				self.db.close()
-				self.db = None
+			async with self.pool.acquire() as conn:
+				stmt = await conn.prepare(query)
 
-	async def execute_query(self, query: str, params: tuple = ()):
-		try:
-			logger.info(f"query: {query}, params: {params}")
+				if stmt.get_attributes():
+					rows = await conn.fetch(query, *params)
+					return [dict(row) for row in rows]
 
-			async with Database() as db:
-				async with db.cursor(aiomysql.DictCursor) as cursor:
-					await cursor.execute(query, params)
+				result = await conn.execute(query, *params)
 
-					if cursor.description is not None:
-						rows = await cursor.fetchall()
-						return rows
+				return {
+					"status": result
+				}
 
-					info = {"rowcount": cursor.rowcount, "lastrowid": cursor.lastrowid}
-					
-					return info
+		except asyncpg.UniqueViolationError as e:
+			logger.error("UniqueViolationError: %s | query=%s | params=%s", e, query, params)
+			raise
 
-		except IntegrityError as e:
-			logger.error(f'IntegrityError: {e}, query: {query}, params: {params}')
+		except asyncpg.ForeignKeyViolationError as e:
+			logger.error("ForeignKeyViolationError: %s | query=%s | params=%s", e, query, params)
+			raise
+
+		except asyncio.TimeoutError as e:
+			logger.error("Database timeout: %s | query=%s", e, query)
 			raise
 
 		except Exception as e:
-			logger.error(f'aiomysql error: {e}, query: {query}, params: {params}')
+			logger.error("PostgreSQL error: %s | query=%s | params=%s", e, query, params)
+			raise
+
+	async def execute_many(self, query: str, params: List[Tuple]) -> Dict:
+		if self.pool is None:
+			await self.connect()
+
+		try:
+			logger.info("Executing many: %s | params count: %s", query, len(params))
+
+			async with self.pool.acquire() as conn:
+				async with conn.transaction():
+					await conn.executemany(query, params)
+
+			return {
+				"rowcount": len(params)
+			}
+
+		except asyncpg.UniqueViolationError as e:
+			logger.error("UniqueViolationError: %s | query=%s", e, query)
+			raise
+
+		except asyncpg.ForeignKeyViolationError as e:
+			logger.error("ForeignKeyViolationError: %s | query=%s", e, query)
+			raise
+
+		except asyncio.TimeoutError as e:
+			logger.error("Database timeout: %s | query=%s", e, query)
+			raise
+
+		except Exception as e:
+			logger.error("PostgreSQL error: %s | query=%s", e, query)
 			raise
 
 

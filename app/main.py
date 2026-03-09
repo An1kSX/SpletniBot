@@ -1,3 +1,9 @@
+try:
+    import uvloop
+    uvloop.install()
+except:
+    pass
+
 from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.redis import RedisStorage
 from aiogram.client.default import DefaultBotProperties

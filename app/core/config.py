@@ -24,6 +24,8 @@ class Settings(BaseSettings):
 	redis_host: str = Field("redis", alias="REDIS_HOST")
 	redis_port: int = Field(6379, alias="REDIS_PORT")
 
+	log_level: str = Field("INFO", alias="LOG_LEVEL")
+
 	@property
 	def postgres_dsn(self) -> str:
 		if self.postgres_password:

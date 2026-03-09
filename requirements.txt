@@ -1,0 +1,6 @@
+aiogram
+pydantic
+pydantic_settings
+uvloop
+asyncpg
+redis

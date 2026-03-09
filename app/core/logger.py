@@ -1,7 +1,4 @@
-__all__ = ["ModuleLogger"]
-
 import logging
-import os
 import sys
 from logging import StreamHandler
 from logging.handlers import RotatingFileHandler
@@ -15,6 +12,7 @@ class ModuleLogger:
         backup_count: int = 5,
         to_console: bool = True,
         to_file: bool = False,
+        log_level: str = "INFO"
     ):
         self.logger = self._create_logger(
             module_name=module_name,
@@ -34,10 +32,8 @@ class ModuleLogger:
     ) -> logging.Logger:
         logger = logging.getLogger(module_name)
 
-        level = os.getenv("LOG_LEVEL", "INFO").upper()
-        logger.setLevel(level)
+        logger.setLevel(self.log_level.upper())
 
-        # Если уже настроен — не трогаем handlers (важно при множественных импортах)
         if logger.handlers:
             return logger
 
