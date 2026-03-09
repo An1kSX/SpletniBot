@@ -1,0 +1,6 @@
+__pychache__/
+.env
+*.sublime-project
+*.sublime-workspace
+logs/
+old/
