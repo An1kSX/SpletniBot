@@ -1,24 +1,20 @@
-import asyncpg
+from pathlib import Path
 
 from app.core.config import settings
+from app.core.logger import ModuleLogger
+from app.database.db import database
 
 
-async def create_database_if_not_exists() -> None:
-	conn = await asyncpg.connect(
-		host=settings.postgres_host,
-		port=settings.postgres_port,
-		user=settings.postgres_user,
-		password=settings.postgres_password or None,
-		database="postgres",
-	)
+logger = ModuleLogger(
+	module_name=__name__,
+	log_level=settings.log_level
+).get_logger()
 
-	try:
-		exists = await conn.fetchval(
-			"SELECT 1 FROM pg_database WHERE datname = $1",
-			settings.postgres_db
-		)
 
-		if not exists:
-			await conn.execute(f'CREATE DATABASE "{settings.postgres_db}"')
-	finally:
-		await conn.close()
+async def init_db() -> None:
+	schema_path = Path(__file__).resolve().parent / "schema.sql"
+	schema_sql = schema_path.read_text(encoding="utf-8")
+
+	await database.execute_script(schema_sql)
+
+	logger.info("Database initialized")

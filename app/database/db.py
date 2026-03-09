@@ -130,5 +130,23 @@ class Database:
 			logger.error("PostgreSQL error: %s | query=%s", e, query)
 			raise
 
+	async def execute_script(self, script: str) -> None:
+		if self.pool is None:
+			await self.connect()
+
+		try:
+			logger.info("Executing SQL script")
+
+			async with self.pool.acquire() as conn:
+				await conn.execute(script)
+
+		except asyncio.TimeoutError as e:
+			logger.error("Database script timeout: %s", e)
+			raise
+
+		except Exception as e:
+			logger.error("PostgreSQL script error: %s", e)
+			raise
+
 
 database = Database()
