@@ -19,12 +19,12 @@ class UserService:
 	@staticmethod
 	async def is_subscriber(
 		bot: Bot,
-		user: User
+		user_id: int
 	) -> bool:
 		try:
 			member = await bot.get_chat_member(
 					chat_id=settings.spletni_channel_id,
-					user_id=user.id
+					user_id=user_id
 				)
 
 			return member.status not in (
@@ -34,6 +34,66 @@ class UserService:
 
 		except Exception as e:
 			logger.exception(f"Ошибка при проверке подписки пользователя на канал: {e}")
+			raise
+
+	@staticmethod
+	async def is_banned(
+		user_id: int
+	) -> bool:
+		try:
+			query = "SELECT 1 FROM banned WHERE user_id = %s"
+			params = (user_id, )
+
+			result = await database.execute_query(query, params)
+
+			return bool(result)
+
+		except Exception as e:
+			logger.exception(f"Ошибка проверки забанен ли пользователь: {e}")
+			raise
+
+	@staticmethod
+	async def has_accepted_rules(
+		user_id: int
+	) -> bool:
+		try:
+			query = """
+				SELECT 1
+				FROM users
+				WHERE
+					telegram_id = %s AND
+					accepted_rules IS TRUE
+			"""
+			params = (user_id, )
+
+			result = await database.execute_query(query, params)
+
+			return bool(result)
+
+		except Exception as e:
+			logger.exception(f"Ошибка при проверке принятия правил пользователем: {e}")
+			raise
+
+	@staticmethod
+	async def accept_rules(
+		user_id: int
+	) -> Dict:
+		try:
+			query = """
+				UPDATE users
+				SET
+					accepted_rules = true
+				WHERE
+					telegram_id = %s
+			"""
+			params = (user_id, )
+
+			result = await database.execute_query(query, params)
+
+			return result
+
+		except Exception as e:
+			logger.exception(f"Ошибка при принятии правил пользователем: {e}")
 			raise
 
 	@staticmethod
