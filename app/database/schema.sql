@@ -1,5 +1,5 @@
 CREATE TABLE "bot_settings" (
-  "key" varchar PRIMARY KEY,
+  "setting_key" varchar PRIMARY KEY,
   "value" varchar NOT NULL
 );
 
@@ -14,7 +14,7 @@ CREATE TABLE "users" (
 );
 
 CREATE TABLE "roles" (
-  "id" integer PRIMARY KEY,
+  "id" SERIAL PRIMARY KEY,
   "title" varchar UNIQUE NOT NULL
 );
 
@@ -27,3 +27,11 @@ CREATE TABLE "banned" (
 ALTER TABLE "users" ADD FOREIGN KEY ("role_id") REFERENCES "roles" ("id") DEFERRABLE INITIALLY IMMEDIATE;
 
 ALTER TABLE "banned" ADD FOREIGN KEY ("user_id") REFERENCES "users" ("telegram_id") DEFERRABLE INITIALLY IMMEDIATE;
+
+
+INSERT INTO "bot_settings" ("setting_key", "value") VALUES ('is_working', 'True');
+INSERT INTO "bot_settings" ("setting_key", "value") VALUES ("post_num", "1");
+
+INSERT INTO "roles" ("title") VALUES ("superadmin");
+INSERT INTO "roles" ("title") VALUES ("admin");
+INSERT INTO "roles" ("title") VALUES ("user");
