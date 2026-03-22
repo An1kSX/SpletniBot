@@ -10,6 +10,7 @@ from app.features.user.service import UserService
 from app.content import common_rules
 
 from .filter import UserFilter
+from .schemas import MenuOption
 
 
 router = Router(name="user_router")
@@ -20,11 +21,10 @@ router = Router(name="user_router")
                 UserFilter()
 )
 async def handle_start_message(message: Message, state: FSMContext):
-    user_id = message.from_user.id
-    validation = await UserService.validate_user_access(user_id, state)
-    if not validation["access"]:
-        if validation["text"]:
-            await message.reply(validation["text"], reply_markup=validation["markup"])
+    validation = await UserService.validate_user_access(message, state)
+    if not validation.access:
+        if validation.text:
+            await message.reply(validation.text, reply_markup=validation.markup)
         return
 
     kb = await build_user_menu_keyboard()
@@ -35,22 +35,21 @@ async def handle_start_message(message: Message, state: FSMContext):
                 UserFilter()
 )
 async def handler_private_message(message: Message, state: FSMContext):
-    user_id = message.from_user.id
-    validation = await UserService.validate_user_access(user_id, state)
-    if not validation["access"]:
-        if validation["text"]:
-            await message.reply(validation["text"], reply_markup=validation["markup"])
+    validation = await UserService.validate_user_access(message, state)
+    if not validation.access:
+        if validation.text:
+            await message.reply(validation.text, reply_markup=validation.markup)
         return
     
     text = message.text.lower()
-    if text == "правила":
+    if MenuOption.RULES.equals(text):
         await message.reply(common_rules)
 
-    elif text == "помощь":
+    elif MenuOption.HELP.equals(text):
         pass
 
-    elif text == "признание":
+    elif MenuOption.RECOGNITION.equals(text):
         pass
 
-    elif text == "смена никнейма":
+    elif MenuOption.CHANGE_NICKNAME.equals(text):
         pass

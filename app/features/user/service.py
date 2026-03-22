@@ -10,6 +10,8 @@ from app.database import database
 from app.keyboards.user.builder import build_rules_keyboard
 from app.content import common_rules
 
+from .schemas import UserAccessResult
+
 
 logger = ModuleLogger(
 	module_name=__name__,
@@ -221,32 +223,29 @@ class UserService:
 
 	@staticmethod
 	async def validate_user_access(
-		user_id: int,
+		message: Message,
 		state: FSMContext
 	) -> Dict:
+		user_id = message.from_user.id
 		is_banned = await UserService.is_banned(user_id, state=state)
 		if is_banned:
-			return {
-				"access": False,
-				"text": "",
-				"markup": None
-			}
+			return UserAccessResult(
+				access=False
+			)
 
 		is_accepted_rules = await UserService.has_accepted_rules(user_id, state=state)
 		if not is_accepted_rules:
 			kb = await build_rules_keyboard()
 			text = f"Пожалуйста, примите правила, чтобы продолжить.\n\n{common_rules}"
-			return {
-				"access": False,
-				"text": text,
-				"markup": kb
-			}
+			return UserAccessResult(
+				access=False,
+				text=text,
+				markup=kb
+			)
 
 		is_subscriber = await UserService.is_subscriber(message.bot, user_id, state=state)
 		if not is_subscriber:
-			await message.reply("Пожалуйста, подпишитесь на наш канал, чтобы использовать бота.")
-			return {
-				"access": False,
-				"text": "Пожалуйста, подпишитесь на наш канал, чтобы использовать бота.",
-				"markup": None
-			}
+			return UserAccessResult(
+				access=False,
+				text="Пожалуйста, подпишитесь на наш канал, чтобы использовать бот"
+			)
