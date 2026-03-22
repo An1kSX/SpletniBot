@@ -1,5 +1,6 @@
 import logging
 import sys
+import os
 from logging import StreamHandler
 from logging.handlers import RotatingFileHandler
 
@@ -14,6 +15,7 @@ class ModuleLogger:
         to_file: bool = False,
         log_level: str = "INFO"
     ):
+        self.log_level = log_level
         self.logger = self._create_logger(
             module_name=module_name,
             max_bytes=max_bytes,
@@ -24,6 +26,7 @@ class ModuleLogger:
 
     @staticmethod
     def _create_logger(
+        self,
         module_name: str,
         max_bytes: int,
         backup_count: int,

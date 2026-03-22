@@ -1,37 +1,46 @@
-CREATE TABLE "bot_settings" (
+CREATE TABLE IF NOT EXISTS "bot_settings" (
   "setting_key" varchar PRIMARY KEY,
   "value" varchar NOT NULL
 );
 
-CREATE TABLE "users" (
-  "telegram_id" bigint PRIMARY KEY,
+CREATE TABLE IF NOT EXISTS "users" (
+  "telegram_id" bigint PRIMARY KEY ON DELETE CASCADE,
   "nickname" varchar,
   "username" varchar,
   "first_name" varchar NOT NULL,
   "last_name" varchar,
-  "role_id" integer NOT NULL,
+  "role_id" integer NOT NULL REFERENCES "roles" ("id") DEFAULT 3,
   "accepted_rules" bool NOT NULL DEFAULT false
 );
 
-CREATE TABLE "roles" (
-  "id" SERIAL PRIMARY KEY,
+CREATE TABLE IF NOT EXISTS "roles" (
+  "id" SERIAL PRIMARY KEY on DELETE CASCADE,
   "title" varchar UNIQUE NOT NULL
 );
 
-CREATE TABLE "banned" (
-  "user_id" bigint PRIMARY KEY,
+CREATE TABLE IF NOT EXISTS "banned" (
+  "user_id" bigint PRIMARY KEY REFERENCES "users" ("telegram_id") ON DELETE CASCADE,
   "banned_at" timestamp,
   "reason" text
 );
 
-ALTER TABLE "users" ADD FOREIGN KEY ("role_id") REFERENCES "roles" ("id") DEFERRABLE INITIALLY IMMEDIATE;
 
-ALTER TABLE "banned" ADD FOREIGN KEY ("user_id") REFERENCES "users" ("telegram_id") DEFERRABLE INITIALLY IMMEDIATE;
+INSERT INTO "bot_settings" ("setting_key", "value")
+VALUES ('is_working', 'True')
+ON CONFLICT ("setting_key") DO NOTHING;
 
+INSERT INTO "bot_settings" ("setting_key", "value")
+VALUES ('post_num', '1')
+ON CONFLICT ("setting_key") DO NOTHING;
 
-INSERT INTO "bot_settings" ("setting_key", "value") VALUES ('is_working', 'True');
-INSERT INTO "bot_settings" ("setting_key", "value") VALUES ("post_num", "1");
+INSERT INTO "roles" ("title")
+VALUES ('superadmin')
+ON CONFLICT ("title") DO NOTHING;
 
-INSERT INTO "roles" ("title") VALUES ("superadmin");
-INSERT INTO "roles" ("title") VALUES ("admin");
-INSERT INTO "roles" ("title") VALUES ("user");
+INSERT INTO "roles" ("title")
+VALUES ('admin')
+ON CONFLICT ("title") DO NOTHING;
+
+INSERT INTO "roles" ("title")
+VALUES ('user')
+ON CONFLICT ("title") DO NOTHING;
