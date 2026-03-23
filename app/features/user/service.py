@@ -23,7 +23,7 @@ class UserService:
 	@staticmethod
 	async def get_user_role_db(
 		user_id: int
-	) -> str:
+	) -> Optional[str]:
 		query = """
 			SELECT r.title
 			FROM users u
@@ -34,13 +34,13 @@ class UserService:
 
 		result = await database.execute_query(query, params)
 
-		return result[0]['title']
+		return result[0]['title'] if result else None
 	
 	@staticmethod
 	async def get_user_role(
 		user_id: int,
 		state: FSMContext
-	) -> str:
+	) -> Optional[str]:
 		try:
 			data = await state.get_data()
 			role = data.get('role')
@@ -48,12 +48,50 @@ class UserService:
 				return role
 			
 			role = await UserService.get_user_role_db(user_id)
-			await state.update_data(role=role)
+			if role is not None:
+				await state.update_data(role=role)
 
 			return role
 
 		except Exception as e:
-			logger.exception(f"Ошибка при получении роли пользователя: {e}")
+			logger.exception(f"Ошибка при получении роли пользователя")
+			raise
+
+	@staticmethod
+	async def get_user_nickname_db(
+		user_id: int
+	) -> Optional[str]:
+		query = """
+			SELECT nickname
+			FROM users
+			WHERE telegram_id = %s
+		"""
+		params = (user_id, )
+
+		result = await database.execute_query(query, params)
+
+		if result:
+			return result[0]['nickname']
+		return None
+	
+	@staticmethod
+	async def get_user_nickname(
+		user_id: int,
+		state: FSMContext
+	) -> Optional[str]:
+		try:
+			data = await state.get_data()
+			nickname = data.get('nickname')
+			if nickname is not None:
+				return nickname
+			
+			nickname = await UserService.get_user_nickname_db(user_id)
+			await state.update_data(nickname=nickname)
+
+			return nickname
+
+		except Exception as e:
+			logger.exception(f"Ошибка при получении никнейма пользователя")
 			raise
 
 	@staticmethod
@@ -71,8 +109,10 @@ class UserService:
 			is_subscriber = await UserService.is_subscriber_api(bot, user_id)
 			await state.update_data(is_subscriber=is_subscriber)
 
+			return is_subscriber
+
 		except Exception as e:
-			logger.exception(f"Ошибка при проверке подписки пользователя на канал: {e}")
+			logger.exception(f"Ошибка при проверке подписки пользователя на канал")
 			raise
 
 	@staticmethod
@@ -104,8 +144,10 @@ class UserService:
 			is_banned = await UserService.is_banned_db(user_id)
 			await state.update_data(is_banned=is_banned)
 
+			return is_banned
+
 		except Exception as e:
-			logger.exception(f"Ошибка при проверке забанен ли пользователь: {e}")
+			logger.exception(f"Ошибка при проверке забанен ли пользователь")
 			raise
 
 	@staticmethod
@@ -134,8 +176,10 @@ class UserService:
 			accepted_rules = await UserService.has_accepted_rules_db(user_id)
 			await state.update_data(accepted_rules=accepted_rules)
 
+			return accepted_rules
+
 		except Exception as e:
-			logger.exception(f"Ошибка при проверке принятия правил пользователем: {e}")
+			logger.exception(f"Ошибка при проверке принятия правил пользователем")
 			raise
 
 	@staticmethod
@@ -176,11 +220,11 @@ class UserService:
 			return result
 
 		except Exception as e:
-			logger.exception(f"Ошибка при принятии правил пользователем: {e}")
+			logger.exception(f"Ошибка при принятии правил пользователем")
 			raise
 
 	@staticmethod
-	async def sync_user(
+	async def create_user(
 		user: User
 	) -> Dict:
 		try:
@@ -201,10 +245,7 @@ class UserService:
 					%s,
 					(SELECT id FROM roles WHERE title = %s)
 				)
-				ON CONFLICT (telegram_id) DO UPDATE SET
-					username = EXCLUDED.username,
-					first_name = EXCLUDED.first_name,
-					last_name = EXCLUDED.last_name
+				ON CONFLICT (telegram_id) DO NOTHING
 			"""
 			params = (
 				user.id,
@@ -218,7 +259,35 @@ class UserService:
 			return await database.execute_query(query, params)
 
 		except Exception as e:
-			logger.exception(f"Ошибка синхронизации пользователя: {e}")
+			logger.exception(f"Ошибка синхронизации пользователя")
+			raise
+
+	@staticmethod
+	async def sync_user(
+		user: User,
+	) -> Dict:
+		try:
+			query = """
+				UPDATE users
+				SET
+					username = %s,
+					first_name = %s,
+					last_name = %s
+				WHERE telegram_id = %s
+			"""
+			params = (
+				user.username,
+				user.first_name,
+				user.last_name,
+				user.id
+			)
+
+			result = await database.execute_query(query, params)
+
+			return result
+		
+		except Exception as e:
+			logger.exception(f"Ошибка синхронизации пользователя")
 			raise
 
 	@staticmethod
@@ -236,7 +305,7 @@ class UserService:
 		is_accepted_rules = await UserService.has_accepted_rules(user_id, state=state)
 		if not is_accepted_rules:
 			kb = await build_rules_keyboard()
-			text = f"Пожалуйста, примите правила, чтобы продолжить.\n\n{common_rules}"
+			text = f"Пожалуйста, примите правила, чтобы использовать бот\n\n{common_rules}"
 			return UserAccessResult(
 				access=False,
 				text=text,

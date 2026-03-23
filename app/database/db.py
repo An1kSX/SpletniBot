@@ -43,7 +43,7 @@ class Database:
 			password=self.password or None,
 			database=self.dbname,
 			min_size=1,
-			max_size=10,
+			max_size=20,
 			command_timeout=10,
 			timeout=10,
 		)

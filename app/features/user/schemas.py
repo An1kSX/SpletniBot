@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from typing import Optional
 from aiogram.types import InlineKeyboardMarkup
+from aiogram.types import StatesGroup, State
 from enum import Enum
 
 
@@ -11,6 +12,7 @@ class UserAccessResult:
     text: Optional[str] = None
     markup: Optional[InlineKeyboardMarkup] = None
 
+
 class MenuOption(Enum):
     HELP = "Помощь"
     RECOGNITION = "Признание"
@@ -19,3 +21,11 @@ class MenuOption(Enum):
 
     def equals(self, text: str) -> bool:
         return self.value.lower() == text.lower()
+    
+
+class UserState(StatesGroup):
+    menu = State()
+    help = State()
+    recognition = State()
+    change_nickname = State()
+    
